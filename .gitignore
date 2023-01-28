@@ -1,3 +1,6 @@
+# Folders to ignore - files may be too large, too many, etc. NOTE: EDIT IF NEEDED.
+data
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
