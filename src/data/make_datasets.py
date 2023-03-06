@@ -15,6 +15,16 @@ def main(input_filepath, output_filepath):
     logger = logging.getLogger(__name__)
     logger.info('making final data set from raw data')
 
+    # Unzip .zip directories in ../raw
+
+    # Create ../data/interim/unzip directory
+
+    # Find all .zip filepaths in raw
+    # Something like glob.glob("../data/raw/*.zip")
+    # Loop through the list and output into ../interim/unzip/*/dir
+    # where * is the subdirectory in raw and dir is the name of the zip file
+    
+
 
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
