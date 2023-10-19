@@ -1,6 +1,5 @@
 # Folders to ignore - files may be too large, too many, etc. NOTE: EDIT IF NEEDED.
 data
-reports
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -85,8 +84,15 @@ target/
 # exclude references from source control by default
 /references/
 
-# Mac OS-specific storage files
+# OS generated files #
+######################
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # vim
 *.swp
