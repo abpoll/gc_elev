@@ -82,7 +82,6 @@ download:
         # County and zip code tabulation area spatial data available for the whole country
         county: "https://www2.census.gov/geo/tiger/TIGER2022/COUNTY/tl_2022_us_county.zip"
         zcta: "https://www2.census.gov/geo/tiger/TIGER2022/ZCTA520/tl_2022_us_zcta520.zip"
-
 # We need to keep track of the format different api data is returned in
 # to write it out
 api_ext:
