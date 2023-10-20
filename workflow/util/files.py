@@ -32,7 +32,7 @@ FE = join(FR, "external")
 FI = join(ABS_DIR, "data", "interim")
 FO = join(ABS_DIR, "data", "results")
 
-# Directories for exposure, vulnerability (vuln) and
+# "Raw" data directories for exposure, vulnerability (vuln) and
 # administrative reference files
 EXP_DIR_R = join(FR, "exp")
 VULN_DIR_R = join(FR, "vuln")
@@ -44,6 +44,24 @@ POL_DIR_R = join(FR, "pol")
 
 # Unzip directory 
 UNZIP_DIR = join(FR, "unzipped")
+
+# We want to process unzipped data and move it
+# to the interim directory where we keep
+# processed data
+# Get the filepaths for unzipped data
+HAZ_DIR_UZ = join(UNZIP_DIR, "external", "haz")
+POL_DIR_UZ = join(UNZIP_DIR, "pol")
+REF_DIR_UZ = join(UNZIP_DIR, "ref")
+VULN_DIR_UZ = join(UNZIP_DIR, "vuln")
+
+# "Interim" data directories
+EXP_DIR_I = join(FI, "exp")
+VULN_DIR_I = join(FI, "vuln")
+REF_DIR_I = join(FI, "ref")
+# Haz is for depth grids
+HAZ_DIR_I = join(FI, "haz")
+# Pol is for NFHL
+POL_DIR_I = join(FI, "pol")
 
 # prepare_saving method makes sure
 # the parent directories exist

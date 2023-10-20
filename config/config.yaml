@@ -47,12 +47,16 @@ download:
         # NSI has an API endpoint
         # We call it county by county
         nsi: "https://nsi.sec.usace.army.mil/nsiapi/structures?fips={FIPS}"
+      ref:
+            # We use the Gloucester City, NJ municipal boundary as our clip
+            # file for this case study
+        clip: "https://services3.arcgis.com/JGF6qCAQFbROcocK/arcgis/rest/services/CamdenCountyMunicipalLayer/FeatureServer/0/query?f=geojson&where=(NAMELSAD%20IN%20(%27Gloucester%20City%20city%27))&outFields=*"
     url:
-      # We use the national flood hazard layer for flood zones
-      # These URLs currently are not in a structured format, as far as I know
-      # and to generalize this may be better suited to a more dynamic
-      # speficiation (i.e. maybe with url prefix and then the {fname}.zip specified
-      # more dynamically)
+        # We use the national flood hazard layer for flood zones
+        # These URLs currently are not in a structured format, as far as I know
+        # and to generalize this may be better suited to a more dynamic
+        # speficiation (i.e. maybe with url prefix and then the {fname}.zip specified
+        # more dynamically)
         pol:
           nfhl: "https://hazards.fema.gov/nfhlv2/output/County/34007C_20160816.zip"
   STATEABBR:
@@ -86,6 +90,27 @@ download:
 # to write it out
 api_ext:
   nsi: ".json"
+  clip: ".json"
 
 # We need to keep track of which wildcards are used in urls
 url_wildcards: ["{FIPS}", "{STATEABBR}", "{STATEFIPS}", "{NATION}"]
+
+# We need to keep track of the hazard directory name
+haz_dir: "Combination_Rain_WL"
+
+# Keep track of NSI CRS
+nsi_crs: "EPSG:4326"
+
+# Keep track of clip CRS
+# The metadata says 26918, but when you
+# use that and plot, you clearly see the
+# coordinates are in degrees
+# Upon further inspection, epsg 4326 appers
+# to be the correct CRS
+clip_crs: "EPSG:4326"
+
+# Hazard model configurations
+# Keep track of return periods
+RPs: ["001", "002", "005", "010", "015", "020", "025", "050", "075", "100", "200", "500"]
+haz_filename: "Max_WD_Comb_{RP}.asc"
+haz_crs: "EPSG:26918"

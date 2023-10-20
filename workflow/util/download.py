@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 from yaml.loader import SafeLoader
 import requests
+import json
 from util.files import *
 from util.const import *
 
@@ -167,9 +168,9 @@ def download_url(url, save_path, chunk_size=128):
 # so want to split this from the download_url
 # function
 def download_api(url, save_path):
-    r = requests.get(url)
-    with open(save_path, 'wb') as fd:
-        fd.write(r)
+    data = requests.get(url).json()
+    with open(save_path, 'w') as fd:
+        json.dump(data, fd)
 
 # The download_raw function
 # We are going to iterate through our 
