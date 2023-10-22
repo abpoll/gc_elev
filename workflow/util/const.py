@@ -2,10 +2,22 @@
 Constants that are widely used throughout the
 framework
 '''
-from util.files import *
+import os
+from os.path import join
+from pathlib import Path
 import yaml
 from yaml.loader import SafeLoader
 import pandas as pd
+
+# Absolute directory
+# The root of the project directory 
+# is obtained with the Path(os.path.realpath(__file__).parents[1]
+# command. parents[1] would take us to workflow/
+ABS_DIR = Path(os.path.realpath(__file__)).parents[2]
+
+# From ABS_DIR, we can access our config.yaml file
+# for the project
+CONFIG_FILEP = join(ABS_DIR, 'config', 'config.yaml')
 
 # Open the config file and load
 with open(CONFIG_FILEP) as f:
@@ -18,7 +30,15 @@ URL_WILDCARDS = CONFIG['url_wildcards']
 API_EXT = CONFIG['api_ext']
 
 # Get the name of the external hazard directory
-HAZ_DIR = CONFIG['haz_dir']
+# Actually, there will be a dictionary
+# of these which corresponds to different
+# %iles of the waterlevel/precip distributions
+# for each RP
+HAZ_DIR_MID = CONFIG['haz_dir_mid']
+HAZ_DIR_LOW = CONFIG['haz_dir_low']
+HAZ_DIR_HIGH = CONFIG['haz_dir_high']
+HAZ_DIR_SUB = CONFIG['haz_dir_sub']
+HAZ_DIRS = [HAZ_DIR_LOW, HAZ_DIR_MID, HAZ_DIR_HIGH]
 
 # Get the CRS constants
 NSI_CRS = CONFIG['nsi_crs']

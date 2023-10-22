@@ -2,21 +2,13 @@
 import os
 from os.path import join
 from pathlib import Path
+from util.const import *
+import rasterio
 
 '''
 Set up references for file directories that
 are used throughout the workflow
 '''
-
-# Absolute directory
-# The root of the project directory 
-# is obtained with the Path(os.path.realpath(__file__).parents[1]
-# command. parents[1] would take us to workflow/
-ABS_DIR = Path(os.path.realpath(__file__)).parents[2]
-
-# From ABS_DIR, we can access our config.yaml file
-# for the project
-CONFIG_FILEP = join(ABS_DIR, 'config', 'config.yaml')
 
 # We can also specify the filepath to the
 # raw data directory
@@ -67,3 +59,17 @@ POL_DIR_I = join(FI, "pol")
 # the parent directories exist
 def prepare_saving(filepath):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+# Helper function for reading in hazard data
+def read_dg(rp, haz_dir):
+    # Makes sense we would also have the depth grids stored
+    # in directories for different %iles
+    # ci5/median/ci95, for example
+    # and this could be passed in as an argument
+    # and put after HAZ_DIR? Not sure what the other
+    # file directory formats will be
+    base_dir = join(HAZ_DIR_UZ, haz_dir, HAZ_DIR_SUB, "RP_" + rp)
+    rp_filep = join(base_dir, HAZ_FILEP.replace('{RP}', rp))
+    depth_grid = rasterio.open(rp_filep)
+
+    return depth_grid
