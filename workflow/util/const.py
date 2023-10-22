@@ -50,6 +50,14 @@ RET_PERS = CONFIG['RPs']
 HAZ_FILEP = CONFIG['haz_filename']
 HAZ_CRS = CONFIG['haz_crs']
 
+# Toggles for deleting zip directories
+# that were downloaded after they
+# have been processed
+RM_NFHL = CONFIG['rm_nfhl']
+
+# MTR_TO_FT constant
+MTR_TO_FT = 3.28084
+
 # Get the files we need downloaded
 # These are specified in the "download" key 
 # in the config file

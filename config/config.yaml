@@ -117,3 +117,8 @@ clip_crs: "EPSG:4326"
 RPs: ["001", "002", "005", "010", "015", "020", "025", "050", "075", "100", "200", "500"]
 haz_filename: "Max_WD_Comb_{RP}.asc"
 haz_crs: "EPSG:26918"
+
+# Some configurations for deleting zipped
+# directories that were downloaded after
+# they have been processed
+rm_nfhl: False
