@@ -36,7 +36,7 @@ def tidy_ddfs(raw_ddf, idvars):
     return ddf_melt
 
 def ddf_max_depth_dict(tidy_ddf, dam_col):
-        # We want all depths above max depths for the DDFs
+    # We want all depths above max depths for the DDFs
     # to take the param values of the max depth DDF
     # First, we groupby bld type for naccs and get max depth for
     # each bld type

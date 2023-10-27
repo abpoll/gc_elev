@@ -122,3 +122,74 @@ haz_crs: "EPSG:26918"
 # directories that were downloaded after
 # they have been processed
 rm_nfhl: False
+
+# Dictionary of reference filenames to 
+# what we want them to say
+ref_names:
+  tract: "tract"
+  tabblock20: "block"
+  bg: "bg"
+  county: "county"
+  zcta520: "zcta"
+
+# Dictionary of ref names to their
+# id column
+ref_id_names:
+  tract: "GEOID"
+  block: "GEOID20"
+  bg: "GEOID"
+  zcta: "GEOID20"
+
+# Constants for loss estimation
+# Uncertainty for structure values
+# State of the art automated valuation models
+# are generally mean unbiased
+# This paper https://www.tandfonline.com/doi/full/10.1080/09599916.2020.1807587
+# suggests that a linear model can capture ~ 40% of structure value
+# estimates by w/in 10% of their value, and ~ 83% of structure value estimates
+# by w/in 30% of their value
+# We don't have guidance on what
+# the accuracy of NJ assessments are
+# We also don't have guidance on how well the
+# NSI structure values are calibrated. They are modeled from
+# a non-transparent process and do not come with uncertainty
+# or bias estimates
+# If we use guidance from the Krause et al. paper linked
+# above, we can define a normal distribution that is centered
+# at the predicted value and has a standard deviation
+# equal to predicted value * .3. If you 
+# look at the probability of getting a value > 
+# the predicted value + predicted value *.3, it's
+# around .158, and same for the other side. So
+# we can push our scaling factor down a bit
+# to try and get the probability 
+# of being above or under 
+# predicted value + predicted value *.3
+# to around .1 on either side. That would be
+# consistent with the finding in Krause
+# This leads to a scaling factor of about .25
+# Another interpretation for this scaling factor
+# is the coefficient of variation around
+# the mean
+coef_var: .25
+
+# Dictionary of foundation types 
+# Triangular distributions for first-floor elevation conditioned
+# on foundation type
+# From this repo: https://github.com/HenryGeorgist/go-fathom/
+# blob/master/compute/foundationheights.go
+# from the wing et al. 2022 paper
+# distributions (min, most likely, max) conditioned on foundation type
+# Tri(0, .5, 1.5|Slab)
+# Tri(0, 1.5, 4|Crawl)
+# Tri(0, 1.5, 4|Basement)
+# Tri(6, 9, 12|Pier)
+# Tri (6, 9, 12|Pile)
+# For this case study, only need 'S', 'C', and 'B'
+ffe_dict:
+  S: [0, .5, 1.5]
+  C: [0, 1.5, 4]
+  B: [0, 1.5, 4]
+
+# Number of SOWs
+sows: 10000

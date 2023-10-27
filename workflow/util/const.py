@@ -55,8 +55,24 @@ HAZ_CRS = CONFIG['haz_crs']
 # have been processed
 RM_NFHL = CONFIG['rm_nfhl']
 
+# Dictionary of ref_names
+REF_NAMES_DICT = CONFIG['ref_names']
+
+# Dictionary of ref_id_names
+REF_ID_NAMES_DICT = CONFIG['ref_id_names']
+
+# Coefficient of variation
+# for structure values
+COEF_VARIATION = CONFIG['coef_var']
+
+# First floor elevation dictionary
+FFE_DICT = CONFIG['ffe_dict']
+
 # MTR_TO_FT constant
 MTR_TO_FT = 3.28084
+
+# Number of states of the world
+N_SOW = CONFIG['sows']
 
 # Get the files we need downloaded
 # These are specified in the "download" key 
