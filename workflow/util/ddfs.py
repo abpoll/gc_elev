@@ -160,3 +160,27 @@ def est_hazus_loss(hazus_ddf_types, depths, ddfs, MAX_DICT):
 
     # Return our loss estimates
     return losses
+
+def est_hazus_loss_nounc(bld_types, depths, ddfs, MAX_DICT):
+    # Combine building types and depths on index
+    bld_depths = pd.concat([bld_types, pd.Series(depths)], axis=1)
+    # Rename columns to correspond to each series
+    bld_depths.columns = ['ddf_id', 'depth_ft']
+    # Merge bld_type/depths with the ddfs to get params linked up
+    loss_prep = bld_depths.merge(ddfs, how='left')
+    # Helpful to have a mask for where there are no flood depths
+    loss_mask = loss_prep['depth_ft'].notnull()
+    # When depths are null, no flooding so no damages
+    loss_prep.loc[~loss_mask, 'rel_dam'] = 0
+    # There could be some depths greater than the support from DDFs
+    # Fill these in based on the HAZUS_DEF_MAX_DICT
+    missing_rows = ((loss_mask) &
+                    (loss_prep['rel_dam'].isnull()))
+    missing_dams = loss_prep.loc[missing_rows]['ddf_id'].map(MAX_DICT)
+    # Replace the entries with missing params but positive depths
+    loss_prep.loc[missing_rows, 'rel_dam'] = missing_dams
+    
+    # We go directly to losses now
+    losses = loss_prep['rel_dam']
+
+    return losses

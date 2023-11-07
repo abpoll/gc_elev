@@ -37,6 +37,9 @@ POL_DIR_R = join(FR, "pol")
 # Unzip directory 
 UNZIP_DIR = join(FR, "unzipped")
 
+# Figures directory
+FIG_DIR = join(ABS_DIR, "figures")
+
 # We want to process unzipped data and move it
 # to the interim directory where we keep
 # processed data
