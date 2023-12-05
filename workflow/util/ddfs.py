@@ -62,7 +62,18 @@ def est_naccs_loss(bld_types, depths, ddfs, MAX_DICT):
     # Rename columns to correspond to each series
     bld_depths.columns = ['ddf_id', 'depth_ft']
     # Merge bld_type/depths with the ddfs to get params linked up
-    loss_prep = bld_depths.merge(ddfs, how='left')
+    # Need to create columns for the merge
+    # We use the number 100, since this is our floating point precision
+    # for these DDFs
+    bld_depths['merge'] = np.where(bld_depths['depth_ft'].isnull(),
+                                    -9999,
+                                    np.round(bld_depths['depth_ft']*100)).astype(int)
+    ddfs['merge'] = np.round(ddfs['depth_ft']*100).astype(int) 
+    # Drop column 'depth_ft' from ddfs for the merge
+    loss_prep = bld_depths.merge(ddfs.drop(columns='depth_ft'),
+                                 on=['ddf_id', 'merge'], how='left')
+    # Drop the merge column
+    loss_prep = loss_prep.drop(columns='merge')
     # Helpful to have a mask for where there are no flood depths
     loss_mask = loss_prep['depth_ft'].notnull()
     # When depths are null, no flooding so no damages
@@ -117,7 +128,17 @@ def est_hazus_loss(hazus_ddf_types, depths, ddfs, MAX_DICT):
     # Rename columns to correspond to each series
     bld_depths.columns = ['ddf_id', 'depth_ft']
     # Merge bld_type/depths with the ddfs to get params linked up
-    loss_prep = bld_depths.merge(ddfs, how='left')
+    # Need to create columns for the merge
+    # We use the number 10, since this is our floating point precision
+    bld_depths['merge'] = np.where(bld_depths['depth_ft'].isnull(),
+                                -9999,
+                                np.round(bld_depths['depth_ft']*10)).astype(int)
+    ddfs['merge'] = np.round(ddfs['depth_ft']*10).astype(int) 
+    # Drop column 'depth_ft' from ddfs for the merge
+    loss_prep = bld_depths.merge(ddfs.drop(columns='depth_ft'),
+                                on=['ddf_id', 'merge'], how='left')
+    # Drop the merge column
+    loss_prep = loss_prep.drop(columns='merge')
     # Helpful to have a mask for where there are no flood depths
     loss_mask = loss_prep['depth_ft'].notnull()
     # When depths are null, no flooding so no damages
@@ -167,7 +188,17 @@ def est_hazus_loss_nounc(bld_types, depths, ddfs, MAX_DICT):
     # Rename columns to correspond to each series
     bld_depths.columns = ['ddf_id', 'depth_ft']
     # Merge bld_type/depths with the ddfs to get params linked up
-    loss_prep = bld_depths.merge(ddfs, how='left')
+    # Need to create columns for the merge
+    # We use the number 10, since this is our floating point precision
+    bld_depths['merge'] = np.where(bld_depths['depth_ft'].isnull(),
+                                -9999,
+                                np.round(bld_depths['depth_ft']*10)).astype(int)
+    ddfs['merge'] = np.round(ddfs['depth_ft']*10).astype(int) 
+    # Drop column 'depth_ft' from ddfs for the merge
+    loss_prep = bld_depths.merge(ddfs.drop(columns='depth_ft'),
+                                on=['ddf_id', 'merge'], how='left')
+    # Drop the merge column
+    loss_prep = loss_prep.drop(columns='merge')
     # Helpful to have a mask for where there are no flood depths
     loss_mask = loss_prep['depth_ft'].notnull()
     # When depths are null, no flooding so no damages
