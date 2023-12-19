@@ -196,3 +196,29 @@ ffe_dict:
 
 # Number of SOWs
 sows: 10000
+
+# Parameters for construction price indices (cpi)
+# Bureau of labor statistics and census bureau
+# More details in resources/ and in the reproduction
+# instructions
+bls_cpi: 1.41
+cb_cpi: 1.85
+# Parameters for elevation fixed costs
+clara_elev_fixed: 20000
+usace_elev_fixed: 70000
+# Parameters for variable elevation costs
+# which vary by level of heightening, 
+# foundation type, and construction type
+# These are stored in nested dicts
+# The values correspond to 2 feet, 
+# 4 feet, and 8 feet of elevation
+# We will use these as the values for
+# 2-3 feet, 4-7 feet, and 7-10 feet
+# of elevation
+elev_cost_dict:
+  wood: 
+    basement: [29, 32, 37]
+    slab: [80, 83, 88]
+  masonry: 
+    basement: [60, 63, 68]
+    slab: [88, 91, 96]
