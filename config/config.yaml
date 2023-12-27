@@ -212,9 +212,9 @@ usace_elev_fixed: 70000
 # These are stored in nested dicts
 # The values correspond to 2 feet, 
 # 4 feet, and 8 feet of elevation
-# We will use these as the values for
-# 2-3 feet, 4-7 feet, and 7-10 feet
-# of elevation
+# We will linearly interpolate 
+# these points and limit from 3 feet
+# to 10 feet
 elev_cost_dict:
   wood: 
     basement: [29, 32, 37]
