@@ -71,6 +71,13 @@ FFE_DICT = CONFIG['ffe_dict']
 # MTR_TO_FT constant
 MTR_TO_FT = 3.28084
 
+# Elevation cost parameters
+BLS_CPI = CONFIG['bls_cpi']
+CB_CPI = CONFIG['cb_cpi']
+ELEV_FIX_LOW = CONFIG['clara_elev_fixed']
+ELEV_FIX_HIGH = CONFIG['usace_elev_fixed']
+ELEV_COST_DICT = CONFIG['elev_cost_dict']
+
 # Number of states of the world
 N_SOW = CONFIG['sows']
 
