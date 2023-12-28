@@ -81,6 +81,10 @@ ELEV_COST_DICT = CONFIG['elev_cost_dict']
 # Number of states of the world
 N_SOW = CONFIG['sows']
 
+# Project lifetime
+W_SHAPE = CONFIG['shape']
+W_SCALE = CONFIG['scale']
+
 # Get the files we need downloaded
 # These are specified in the "download" key 
 # in the config file

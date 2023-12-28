@@ -222,3 +222,7 @@ elev_cost_dict:
   masonry: 
     basement: [60, 63, 68]
     slab: [88, 91, 96]
+
+# Project lifetime parameters
+shape: 2.8
+scale: 73.5
