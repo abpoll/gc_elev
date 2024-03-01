@@ -269,7 +269,7 @@ for scen, ens_df in ens_dfs.items():
     rel_cols = [x for x in ens_df.columns if 'rel_dam' in x]
     # For each relative damage column, scale by val_s, the structure
     # value realization
-    # We need to do this for naccs & haz prefixes
+    # We need to do this for naccs & hazus prefixes
     for col in rel_cols:
         prefix = col.split('_')[0]
         rp = col.split('_')[-1]
@@ -284,34 +284,34 @@ for scen, ens_df in ens_dfs.items():
     
     # We make a list of our loss columns
     # This is easier to do splitting by prefix
-    haz_loss_list = ['haz_loss_' + x for x in RET_PERS]
+    hazus_loss_list = ['hazus_loss_' + x for x in RET_PERS]
     naccs_loss_list = ['naccs_loss_' + x for x in RET_PERS]
     # As well as the corresponding probabilities
     p_rp_list = [round(1/int(x), 4) for x in RET_PERS]
     
     # Then we create an empty series
     # Two, for hazus & naccs loss estimates
-    eal_haz = pd.Series(index=ens_df.index).fillna(0)
+    eal_hazus = pd.Series(index=ens_df.index).fillna(0)
     eal_naccs = pd.Series(index=ens_df.index).fillna(0)
     
     # We loop through our loss list and apply the 
     # trapezoidal approximation
-    for i in range(len(haz_loss_list) - 1):
-        loss1_haz = ens_df[haz_loss_list[i]]
-        loss2_haz = ens_df[haz_loss_list[i+1]]
+    for i in range(len(hazus_loss_list) - 1):
+        loss1_hazus = ens_df[hazus_loss_list[i]]
+        loss2_hazus = ens_df[hazus_loss_list[i+1]]
         loss1_naccs = ens_df[naccs_loss_list[i]]
         loss2_naccs = ens_df[naccs_loss_list[i+1]]
         rp1 = p_rp_list[i]
         rp2 = p_rp_list[i+1]
         # We add each approximation
-        eal_haz += (loss1_haz + loss2_haz)*(rp1-rp2)/2
+        eal_hazus += (loss1_hazus + loss2_hazus)*(rp1-rp2)/2
         eal_naccs += (loss1_naccs + loss2_naccs)*(rp1-rp2)/2
     # This is the final trapezoid to add in
-    final_eal_haz = eal_haz + ens_df[haz_loss_list[-1]]*p_rp_list[-1]
+    final_eal_hazus = eal_hazus + ens_df[hazus_loss_list[-1]]*p_rp_list[-1]
     final_eal_naccs = eal_naccs + ens_df[naccs_loss_list[-1]]*p_rp_list[-1]
     print('Calculated EAL')
     # Add eal columns to our dataframe
-    ens_df = pd.concat([ens_df, pd.Series(final_eal_haz, name='haz_eal')],
+    ens_df = pd.concat([ens_df, pd.Series(final_eal_hazus, name='hazus_eal')],
                        axis=1)
     ens_df = pd.concat([ens_df, pd.Series(final_eal_naccs, name='naccs_eal')],
                        axis=1)

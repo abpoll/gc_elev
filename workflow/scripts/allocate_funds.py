@@ -26,35 +26,43 @@ ddf_types = ['naccs', 'hazus']
 # Load the ensemble data, along with the optimal
 # elevation results
 sort_dfs = {}
+ens_dfs = {}
+
+# Load the ensemble data, along with the optimal
+# elevation results
+sort_dfs = {}
+ens_dfs = {}
 
 for scen in scenarios:
     ens_filep = join(FO, 'ensemble_' + scen + '.pqt')
     ens_df = pd.read_parquet(ens_filep)
     print('Load data: ' + scen)
-    
+
     for ddf_type in ddf_types:
         opt_elev_filename = 'ens_opt_elev_' + ddf_type + '_' + scen + '.pqt'
         opt_elev_df = pd.read_parquet(join(EXP_DIR_I, FIPS, opt_elev_filename))
         print('Load opt elev: ' + ddf_type)
-
+        
         # Merge on fd_id and sow_ind to get eal_avoid, elev_cost, and opt_elev
         # into the ensemble
-        ens_df = ens_df.merge(opt_elev_df,
-                              on=['fd_id', 'sow_ind'],
-                              suffixes=['','_opt'])
+        ens_df_m = ens_df.merge(opt_elev_df,
+                                on=['fd_id', 'sow_ind'],
+                                suffixes=['','_opt'])
 
         # Add metrics for objectives that we don't have yet
-        ens_df['rel_eal'] = ens_df['base_eal']/ens_df['val_s']
-        ens_df['npv_opt'] = ens_df['pv_avoid'] - ens_df['pv_cost']
+        ens_df_m['rel_eal'] = ens_df_m['base_eal']/ens_df_m['val_s']
+        ens_df_m['npv_opt'] = ens_df_m['pv_avoid'] - ens_df_m['pv_cost']
 
+        ens_dfs[scen + '_' + ddf_type] = ens_df_m
+
+        print('Store ensemble df\n')
+        
         # We need to group by on fd_id and aggregate on our sorting columns
         sub_cols = ['pv_resid', 'npv_opt', 'fd_id', 'elev_invst',
                     'avoid_rel_eal', 'rel_eal', 'val_s']
-        sort_df = ens_df.groupby('fd_id')[sub_cols].mean()
+        sort_df = ens_df_m.groupby('fd_id')[sub_cols].mean()
         
         sort_dfs[scen + '_' + ddf_type] = sort_df
-
-        print('Store df for sorting\n')
 
 # We also need to load in the links between structures and the
 # social vulnerability data for sorting rules
@@ -91,24 +99,14 @@ budgets = np.append(budgets_typ, budgets_high)
 # then take the mean
 # For mean(slope_resid_rel_eal), we find the slope of the 
 # resid_rel_eal & rel_eal (based on elevated homes) in each SOW
-# and tehn take the mean
-# Household based sorting
+# and then take the mean
 
-# Dict of sort keys to fd_id values
-sort_dict = {}
-# This is for community sorting, more explanation later
-slack_dict = {}
+# Sorting
 
 # We also want to write out the ordering and
 # the allocations
 elev_dict = {}
-
-# We also want to store the objective evaluations for
-# individual SOWs
-# The key is the policy
-# and the values are the evaluations of objectives
-# across all SOWs
-objs_all_sows = {}
+obj_dict = {}
 
 # Columns we sort from top to bottom
 h_sort_desc = ['npv_opt', 'avoid_rel_eal',
@@ -119,18 +117,22 @@ h_sort_desc = ['npv_opt', 'avoid_rel_eal',
 # different set of elevated homes for each policy
 # for each scenario
 for scen, sort_df in sort_dfs.items():
+    # Dict of sort keys to fd_id values
+    sort_dict = {}
+    # This is for community sorting, more explanation later
+    slack_dict = {}
+    
     print('Scenario: ' + scen)
+
+    # Get the corresponding ensemble df
+    ens_df = ens_dfs[scen]
+    
     # Loop through ascending columns and sort, store in dict
     # We want to sort on the col, and give ties to lower
     # valued structures
     for col in h_sort_desc:
         sort_dict[col] = sort_df.sort_values([col, 'val_s'],
                                               ascending=[False, True]).index
-    
-    # Loop through descending columns and sort, store in dict
-    # for col in h_sort_asc:
-    #     sort_dict[col] = sort_df.sort_values([col, 'val_s'],
-    #                                           ascending=[True, True]).index
     
     # Community based sorting
     sort_c_df = sort_df.join(sovi_df, how='inner')
@@ -156,13 +158,14 @@ for scen, sort_df in sort_dfs.items():
     # a separate dict that stores the ids of sort_pri and sort_slack
     # for each of the columns in c_sort_cols. 
     for col in c_sort_cols:
-        sort_temp = sort_c_df[sort_c_df[col] == True]
-        sort_pri = sort_temp.sort_values(['npv_opt', 'val_s'],
-                                         ascending=[False, True]).index
-        sort_temp2 = sort_c_df[sort_c_df[col] == False]
-        sort_slack = sort_temp2.sort_values(['npv_opt', 'val_s'],
-                                             ascending=[False, True]).index
-        sort_dict[col] = sort_pri.join(sort_slack, how='outer')
+        sort_temp = sort_c_df[sort_c_df[col] == False]
+        sort_slack = sort_temp.sort_values(['npv_opt', 'val_s'],
+                                             ascending=[False, True]).index.to_list()
+        # We want the community based sorting to be
+        # based on greatest to lowest benefits, subject to our
+        # community constraint
+        sort_dict[col] = sort_df.sort_values(['npv_opt', 'val_s'],
+                                               ascending=[False, True]).index.to_list()
         # If we have extra budget, we can use it for
         # homes outside the community of interest
         slack_dict[col] = sort_slack
@@ -173,7 +176,6 @@ for scen, sort_df in sort_dfs.items():
     # Then calculate all of the objective values
     # Store in a dict of
     # sort_key_budget keys to objectives values
-    obj_dict = {}
     for budget in budgets:
         for sort_col, fd_id in sort_dict.items():
             # Key for obj dict
@@ -187,28 +189,53 @@ for scen, sort_df in sort_dfs.items():
             # Subset df based on budget
             # But also with some additional rules for
             # community based sorting
+            # We want to make sure the majority of our budget
+            # goes to homes in the prioritization area.
+            # This appears to be the way FEMA is tracking
+            # this, so we want to be consistent. 
             if sort_col in c_sort_cols:
-                # First, we get our primary df and our slack df
+                # The way we can do this is by taking the homes in the
+                # prioritization area, and making sure that we
+                # spend just over half our budget on them.
+                # Then we take all the remaining homes, regardless
+                # of their prioritization status, in terms of
+                # top to bottom benefits. This is what is stored
+                # in sorted_df            
+                
+                # First we need to identify the homes that are in
+                # our prioritizaton area. This is the set of homes
+                # not in our "slack" 
                 slack_ids = slack_dict[sort_col]
                 pri_df = sorted_df[~sorted_df['fd_id'].isin(slack_ids)]
-                slack_df = sorted_df[sorted_df['fd_id'].isin(slack_ids)]
-                # We need to recalculate policy costs
+                
+                # Next we need to allocate half of our budget
+                # plus 500K (higher than our max elevaton cost ensures
+                # majority of expenses go to these homes) to homes in the
+                # prioritization area
+                budget_alloc = budget/2 + 500000
+                # We want running cost of homes we are prioritizing
                 pri_df['policy_cost'] = pri_df['elev_invst'].cumsum()
+                
+                # Now subset based on our budget allocation limit
+                elevated_sub = pri_df[pri_df['policy_cost'] <= budget_alloc]
+                
+                # Then we get the amount of budget we have left
+                slack = budget - elevated_sub['policy_cost'].max()
+                
+                # Now, for all homes in sorted_df that are not in
+                # elevated_sub, we subset based on slack
+                slack_df = sorted_df[~sorted_df['fd_id'].isin(elevated_sub['fd_id'])]
+                # Get the running cost
                 slack_df['policy_cost'] = slack_df['elev_invst'].cumsum()
                 
-                # Now subset based on our budget
-                elevated_sub = pri_df[pri_df['policy_cost'] <= budget]
-                # Then we check if we have any budget leftover
-                slack = budget - elevated_sub['policy_cost'].max()
-                # From our slack dataframe, we'll check which
-                # rows meet this slack
                 slack_elev = slack_df[slack_df['policy_cost'] <= slack]
+                
                 # And we also have to subset based on the majority
                 # of npv coming from our elevated_sub df
-                slack_ben_max = elevated_sub['npv_opt'].sum()/2 
+                slack_ben_max = elevated_sub['npv_opt'].sum() 
                 slack_elev['npv_check'] = slack_elev['npv_opt'].cumsum()
                 slack_elev_sub = slack_elev[(slack_elev['npv_check']
-                                             <= slack_ben_max)]
+                                             < slack_ben_max)]
                 slack_elev_sub = slack_elev_sub.drop(columns='npv_check')
                 
                 # Now concat
@@ -297,14 +324,6 @@ for scen, sort_df in sort_dfs.items():
                                  avoid_eq,
                                  resid_eq)
     
-            # Store objective evaluations for SOWs in the dict
-            # First we can concatenate all of our series into
-            # a dataframe, then have our policy key point to that
-            objs_sows = pd.concat([npvs, resids, up_costs,
-                                   avoid_eqs, resid_eqs], axis=1)
-            objs_all_sows[obj_key] = objs_sows
-            
-    
             # Need to store the fd_id that end up in elevated in a dict
             elev_dict[obj_key] = elevated['fd_id'].astype(int).to_list()
     
@@ -325,24 +344,6 @@ objs['budget'] = objs['policy'].str.split('_').str[-1].astype(float).astype(int)
 objs.loc[objs['sort'].isin(c_sort_cols), 'res'] = 'community'
 objs.loc[~objs['sort'].isin(c_sort_cols), 'res'] = 'household'
 
-# We also want the dataframe of objective evaluations
-# within each SOW
-d = []
-for k, v in objs_all_sows.items():
-    # Get the sow_ind column back
-    df = v.reset_index()
-    df.columns = ['sow_ind', 'npv', 'pv_resid', 'up_cost',
-                  'avoid_eq', 'resid_eq']
-    # Add the policy as a column
-    df['scen_policy'] = k
-    df['policy'] = df['scen_policy'].str.split('_').str[2:].apply(lambda x: '_'.join(x))
-    df['scen'] = df['scen_policy'].str.split('_').str[:2].apply(lambda x: '_'.join(x))
-    df['sort'] = df['policy'].str.split('_').str[:-1].apply(lambda x: '_'.join(x))
-    df['budget'] = df['policy'].str.split('_').str[-1].astype(float).astype(int)
-    d.append(df)
-
-objs_sows = pd.concat(d, axis=0)
-
 # Write out the dataframe of objective values
 # and the dictionary of policy to fd_ids that are
 # elevated
@@ -352,9 +353,3 @@ objs.to_parquet(obj_filep)
 elev_ids_filep = join(FO, 'pol_elev_ids.json')
 with open(elev_ids_filep, 'w') as fp:
     json.dump(elev_dict, fp)
-
-# Write out the dataframe of objective evaluations
-# for each SOW
-objs_sows_filep = join(FO, 'objs_sows.pqt')
-# Need to drop the bin column we made
-objs_sows.to_parquet(objs_sows_filep)

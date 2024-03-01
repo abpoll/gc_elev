@@ -16,6 +16,8 @@ FIPS = '34007'
 STATEABBR = 'NJ'
 NATION = 'US'
 
+print('Starting')
+
 # I think it also could make sense to pass in scenario and
 # ddf type as arguments. For main results
 # we're using 'mid' and 'naccs' but for generating
@@ -40,7 +42,7 @@ ddf_types = ['naccs', 'hazus']
 # We need bldgtype for elevation cost estimation, too
 sub_cols = ['fd_id', 'found_type', 'sqft', 'bldgtype',
             'bld_types', 'hazus_types', 'naccs_eal',
-            'haz_eal', 'val_s', 'sow_ind']
+            'hazus_eal', 'val_s', 'sow_ind']
 # We need to add depth_ffe_* columns 
 depth_ffe_cols = ['depth_ffe_' + x for x in RET_PERS]
 sub_cols = sub_cols + depth_ffe_cols
@@ -308,7 +310,8 @@ for scen, ens_df in ens_dfs.items():
     # Also loop through ddf types
     for ddf_type in ddf_types:
         print('DDF: ' + ddf_type)
-        eal_col = 'naccs_eal' if ddf_type == 'naccs' else 'haz_eal'
+        eal_col = ddf_type + '_eal'
+
         # List for series of mean bcr at each heightening
         h_list = []
         

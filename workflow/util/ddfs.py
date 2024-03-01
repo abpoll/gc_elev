@@ -169,7 +169,7 @@ def est_hazus_loss(hazus_ddf_types, depths, ddfs, MAX_DICT):
     loss_df.loc[no_uni_mask, 'rel_dam'] = loss_df.loc[no_uni_mask]['low']
     
     # Otherwise we draw
-    # from the triangular distribution
+    # from the uniform distribution
     loss_df.loc[~no_uni_mask,
                 'rel_dam'] = rng.uniform(loss_df.loc[~no_uni_mask]['low'],
                                          loss_df.loc[~no_uni_mask]['high'])
