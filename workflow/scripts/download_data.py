@@ -12,15 +12,6 @@ from util.const import *
 Configuring the main set up for
 implementing our utils
 '''
-
-# FIPS, STATE_FIPS, or nothing should be passed in
-# Depending on the length of the string (or its presence)
-# we can infer whether to run
-# county or state or national download processing below
-# This doesn't need to be implemented for our single county
-# case study, and we can do everything from just having
-# FIPS passed in 
-
 # Need a wcard_dict where we map
 # the items in URL_WILDCARDS to the
 # fips, state_abbr, or state_fips
