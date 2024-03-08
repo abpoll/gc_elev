@@ -130,235 +130,18 @@ sqft_clip = nsi_clip_out['sqft'].quantile(.99)
 nsi_clip_out[nsi_clip_out['sqft'] <= sqft_clip].to_file(EXP_OUT_FILEP,
                                                         driver='GPKG')
 
-# Generally, we will process these DDFs the same way since they
-# are written in mostly the same format
-# However, there are a few preprocessing steps necessary for the hazus
-# ddfs. Also, there are some differences for NACCS vs. HAZUS
-# shallow uncertainty representation
+# Processing the NACCS DDFs
 # Read depth damage functions
 ddf_filedir = join(VULN_DIR_UZ, "physical", NATION)
 naccs = pd.read_csv(join(ddf_filedir, "naccs_ddfs.csv"))
-hazus = pd.read_csv(join(ddf_filedir, "haz_fl_dept.csv"))
-
-# First, preprocessing for hazus ddfs
-# For basements, use FIA (MOD.) which does one and two floors by
-# A and V zones
-# For no basements, use USACE - IWR
-# which does one and two floor, no flood zone specified
-# 106: FIA (MOD.) 1S WB A zone
-# 114: "" V zone
-# 108: FIA (MOD.) 1S WB A zone
-# 116: "" V zone
-# 129: USACE - IWR 1S NB
-# 130: USCAE - IWR 2S+ NB
-# For elevating homes, we can use Pile foundation DDFs
-# from USACE - Wilmington
-# 178 - 1S Pile Foundation
-# 183 - 2S Pile Foundation
-# These are no basement homes, so to speak
-# The USACE New Orleans DDFs have some pier foundation
-# DDFs with fresh & salt water and long & short duration
-# but this does not appear to apply to out study area
-# Subset to DmgFnId in the codes above
-dmg_ids = [106, 108, 114, 116, 129, 130, 178, 183]
-hazus_res = hazus[(hazus['DmgFnId'].isin(dmg_ids)) & 
-                  (hazus['Occupancy'] == 'RES1')]
-
-# Make occtype column in the same form that the NSI has
-# e.g. RES1-1SNB
-# Add column for A or V zone
-# Note: outside SFHA basement homes will take A zone
-# What other option do we have? 
-
-# Split Description by comma. 
-# The split[0] element tells us stories (but description sometimes
-# says floors instead of story...)
-# Can get around this issue by looking at first word
-# The split[1] element
-# tells us w/ basement or no basement. Use this to create occtype
-desc = hazus_res['Description'].str.split(',')
-s_type = desc.str[0].str.split(' ').str[0]
-s_type = s_type.str.replace('one', '1').str.replace('two', '2')
-b_type = desc.str[1].str.strip()
-# Below, we are just trying to get archetypes like
-# 1SNB, 2SWB, 1SPL -- for pile foundation
-occtype = np.where(b_type == 'w/ basement',
-                   s_type + 'SWB',
-                   s_type + 'SNB')
-occtype = np.where(b_type == 'Pile foundation',
-                   s_type + 'SPL',
-                   occtype)
-# Some of these HAZUS DDFs require us to keep track of the
-# flood zone they're in
-# I don't think this matters for our case study since
-# there are no high wave coastsal zones
-# This line is designed to work specifically 
-# with the way the descriptions
-# are written out for the DDFs used in this case study
-fz = desc.str[-1].str.lower().str.replace('structure', '').str.strip()
-
-# Need occtype, flood zone, depth_ft, and rel_dam columns
-# Follow steps from naccs processing to get depth_ft and rel_dam
-# First, drop unecessary columns
-# Don't need Source_Table, Occupy_Class, Cover_Class, empty columns
-# Description, Source, DmgFnId, Occupancy and first col (Unnamed: 0)
-# because index was written out
-# Don't need all na columns either (just for automobiles, apparently)
-hazus_res = hazus_res.loc[:,[col for col in hazus_res.columns if 'ft' in col]]
-hazus_res = hazus_res.dropna(axis=1, how='all')
-# Add the occtype and fld_zone columns
-hazus_res = hazus_res.assign(occtype=occtype,
-                             fld_zone=fz.str[0])
-
-# Then, occtype and fld_zone as index and melt rest of columns. 
-idvars = ['occtype', 'fld_zone']
-
-# Get a tidy ddf back
-hazus_melt = tidy_ddfs(hazus_res, idvars)
-
-# Delete depth_str and pctdam and standardize
-# column names
-# Since we just have the building types, call this
-# bld_type instead of occtype
-dropcols = ['depth_str', 'pct_dam', 'occtype', 'fld_zone']
-
-# We create an "id" col for the ddfs
-# Our key for HAZUS is bld_type & fld_zone
-ddf_id = np.where(hazus_melt['fld_zone'].notnull(),
-                  hazus_melt['occtype'] + '_' + hazus_melt['fld_zone'],
-                  hazus_melt['occtype'])
-
-# Add this to our dataframe so that we can drop bld_type & fld_zone
-# Easier to have the flood zone as a capital letter
-# It's lower case because of earlier code to do
-# some processing
-hazus_melt = hazus_melt.assign(ddf_id=pd.Series(ddf_id).str.upper())
-# Drop columns
-hazus = hazus_melt.drop(columns=dropcols)
-
-# We need to interpolate between the values of the DDF that we
-# are given. Generally speaking, this introduces artificial spread
-# in the relative damage distribution since the interpolation is
-# actually a combo of measurement & modeling uncertainty that
-# the DDF bounds yield. But, linear interpolation between DDF points
-# is so common that we will not depart from that before a paper
-# makes the rigorous case that the approach is not needed, once
-# you use DDFs w/ uncertainty bounds
-
-# To do this interpolation, we loop through each ddf_id, 
-# and then we will just sample 10 points and create nan rows
-# (besides ddf_id). Then we interpolate, store in a list
-# and concat at the end
-df_int_list = []
-for ddf_id, df in hazus.groupby('ddf_id'):
-    # This creates the duplicate rows
-    ddf_int = df.loc[np.repeat(df.index, 10)].reset_index(drop=True)
-    # Now we have to make them nulls by finding
-    # the "original" indexed rows
-    ddf_int.loc[ddf_int.index % 10 != 0, ['depth_ft', 'rel_dam']] = np.nan
-    # Now we interpolate
-    ddf_int = ddf_int.interpolate()
-    # Drop duplicate rows (this happens for the max depth values)
-    ddf_int = ddf_int.drop_duplicates()
-    # And append
-    df_int_list.append(ddf_int)
-hazus_ddfs = pd.concat(df_int_list, axis=0)
-
-# Now we're going to process this tidy dataframe into a dictionary
-# for easier ensemble generation
-
-# After we get this new column, we are going to create two
-# new columns based on the +/- .3*pt_estimate (30% uncertainty) 
-# assumption from Maggie's paper 
-# (https://www.nature.com/articles/s41467-020-19188-9)
-# We will take the ddf_id, depth_ft, and these two columns
-# to do the same thing as before for the dict of dicts
-# We need to use max(0, ) and min(1, ) to make sure the +/- .3
-# doesn't lead to negative losses, greater than 100% losses
-# Since Maggie's paper, though, there have been studies
-# suggesting that the damage distribution at each depth
-# follows more of a long upper tailed Beta distribution. 
-# While we don't have parameters for this, we can at least 
-# represent a wider upper tail. So, -.3 and +.5 can better
-# represent this
-# A key assumption is that
-# we can round depths to the nearest value in the
-# dictionary to estimate their loss. There is no guidance in the
-# use of DDFs about interpolating between values given on the DDF
-# NFIP assessed damages data (recently released with the new v2 of
-# the NFIP claims) only provides depth in feet, rounded to the
-# nearest foot. So, any uncertainty surrounding the depth-damage
-# relationship for any foot should include some component of 
-# measurement error in representing some non rounded depth value
-# to the rounded value and estimating a relationship
-# To implement this, we will round all depths to the nearest foot
-# before we check for whether they are inside the bounds for
-# estimating losses with a particular depth-damage function
-# Because of this, rounding the parameters to the nearest
-# hundredth is a much lower order concern
-dam_low = np.maximum(0,
-                     hazus_ddfs['rel_dam'] - .3*hazus_ddfs['rel_dam']).round(2)
-dam_high = np.minimum(1,
-                      hazus_ddfs['rel_dam'] + .5*hazus_ddfs['rel_dam']).round(2)
-
-# Add these columns into our dataframe
-hazus_ddfs = hazus_ddfs.assign(low=dam_low,
-                               high=dam_high)
-
-# For reasons that will become more obvious later,
-# it is really helpful to store our params as a list
-# Get param cols
-uni_params = ['low', 'high']
-
-# Get df of ddf_id, depth_ft, rel_dam
-hazus_f = hazus_ddfs[['ddf_id', 'depth_ft', 'rel_dam']]
-# Now store params as a list
-hazus_f = hazus_f.assign(params=hazus_ddfs[uni_params].values.tolist())
-
-# We are going to write out hazus_f 
-# In generating the ensemble for losses
-# we are going to merge this dataframe
-# with our structure ensemble - merged with
-# depths. So, on haz_depth & depth_ft from hazus_f
-# plus the structure archetype, we can get
-# the rel_dam parameters. We will draw from this
-# and get the rel_dam realization for this
-# state of the world
-# But, he way this data is stored requires a few assumptions
-# about loss estimation
-# First, any depths below that lowest depth have 0 loss
-# Second, any depths above the highest depth have the same
-# loss as the highest depth 
-# To implement this, we will check depths (after drawing from their
-# distribution at each location) for whether they are inside
-# the range of the particular DDF which can be defined with 
-# conastants. If below, loss is 0. If above, swap with
-# the upper bound
-# This is why it's very helpful to have the params stored as 
-# a list, because now we can get unique key/value pairs
-# for the ddf_id and the params
-# We need two dicts for HAZUS
-# One is with the params list
-# One is just ddf_id to rel_dam (for benchmark loss calculations
-# when uncertainty is not considered)
-
-# We can call our helper function to get our dictionaries
-HAZUS_MAX_DICT = ddf_max_depth_dict(hazus_f.reset_index(drop=True),
-                                    'params')
-HAZUS_MAX_NOUNC_DICT = ddf_max_depth_dict(hazus, 'rel_dam')
 
 # For NACCS, we have the RES 1 DDFs
-# For elevation, we have RES-OPEN and RES-ENC
-# These are very similar in terms of damages so
-# only need to retain RES-OPEN for simplicity for
-# our current case study
-# NACCS need some preprocessing as well
 # First, subset to the relevant Occupancy types
 # We want to end up with ddf ids 1swb, open, etc.
 # don't need to keep the RES1- part for this case study
 naccs['res_type'] = naccs['Occupancy'].str.split('-').str[0]
 naccs['bld_type'] = naccs['Occupancy'].str.split('-').str[1]
-occ_types = ['1SWB', '2SWB', '1SNB', '2SNB', 'OPEN']
+occ_types = ['1SWB', '2SWB', '1SNB', '2SNB']
 naccs_res = naccs.loc[(naccs['bld_type'].isin(occ_types)) &
                       ((naccs['res_type'] == 'RES1') |
                        (naccs['res_type'] == 'RES'))]
@@ -413,94 +196,25 @@ naccs_out = naccs_out.assign(params=tri_params.tolist())
 NACCS_MAX_DICT = ddf_max_depth_dict(naccs_out.reset_index(drop=True),
                                     'params')
 
-# We need one hazus file with params for 
-# uncertainty and one w/ just rel_dam
-hazus_unc = hazus_f[['ddf_id', 'depth_ft', 'params']]
-hazus_nounc = hazus_f[['ddf_id', 'depth_ft', 'rel_dam']]
-
 # Main directory
 ddf_out_dir = join(VULN_DIR_I, 'physical')
 # Main ddf files
-hazus_out_filep = join(ddf_out_dir, 'hazus_ddfs.pqt')
-hazus_nounc_out_filep = join(ddf_out_dir, 'hazus_ddfs_nounc.pqt')
 naccs_out_filep = join(ddf_out_dir, 'naccs_ddfs.pqt')
 # Dictionaries - save as .json for simplicity
 naccs_max_filep = join(ddf_out_dir, 'naccs.json')
-hazus_max_filep = join(ddf_out_dir, 'hazus.json')
-hazus_max_nounc_filep = join(ddf_out_dir, 'hazus_nounc.json')
 
 # Only need to call this for one of the files
 # since they share the same parent directory
-prepare_saving(hazus_out_filep)
+prepare_saving(naccs_out_filep)
 
 # Save as parquet files since
 # these will directly read in the
 # DDF params as a list, not as a string
-hazus_unc.to_parquet(hazus_out_filep)
-hazus_nounc.to_parquet(hazus_nounc_out_filep)
 naccs_out.to_parquet(naccs_out_filep)
 
 # Save the json files
 with open(naccs_max_filep, 'w') as fp:
     json.dump(NACCS_MAX_DICT, fp)
-
-with open(hazus_max_filep, 'w') as fp:
-    json.dump(HAZUS_MAX_DICT, fp)
-
-with open(hazus_max_nounc_filep, 'w') as fp:
-    json.dump(HAZUS_MAX_NOUNC_DICT, fp)
-
-# We want S_FLD_HAZ_AR from the National Flood Hazard Layer
-fld_haz_fp = join(POL_DIR_UZ, FIPS, 'S_FLD_HAZ_AR.shp')
-nfhl = gpd.read_file(fld_haz_fp)
-
-# Keep FLD_ZONE, FLD_AR_ID, STATIC_BFE, geometry
-keep_cols = ['FLD_ZONE', 'FLD_AR_ID', 'STATIC_BFE', 'ZONE_SUBTY',
-             'geometry']
-nfhl_f = nfhl.loc[:,keep_cols]
-
-# Adjust .2 pct X zones to X_500
-nfhl_f.loc[nfhl_f['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD',
-           'FLD_ZONE'] = nfhl_f['FLD_ZONE'] + '_500'
-
-# Update column names
-# Lower case
-nfhl_f.columns = [x.lower() for x in nfhl_f.columns]
-
-# Drop ZONE_SUBTY
-nfhl_f = nfhl_f.drop(columns=['zone_subty'])
-
-# Clip flood zones to our study area
-clip_out_filep = join(FI, 'ref', FIPS, 'clip.gpkg')
-clip_gdf = gpd.read_file(clip_out_filep)
-
-# Reproj flood zones
-nfhl_reproj = nfhl_f.to_crs(clip_gdf.crs)
-
-# Clip
-nfhl_clip = gpd.clip(nfhl_reproj, clip_gdf)
-
-# Reproject back
-nfhl_clip_out = nfhl_clip.to_crs(nfhl_f.crs)
-
-# Write file
-nfhl_out_filep = join(POL_DIR_I, FIPS, 'fld_zones.gpkg')
-prepare_saving(nfhl_out_filep)
-nfhl_clip_out.to_file(nfhl_out_filep,
-                      driver='GPKG')
-
-# This is optional: delete the nfhl directory to reduce
-# the file storage burden
-if RM_NFHL:
-    # Get directory name
-    nfhl_dir = join(POL_DIR_UZ, FIPS)
-    
-    # Try to remove the tree; if it fails,
-    # throw an error using try...except.
-    try:
-        shutil.rmtree(nfhl_dir)
-    except OSError as e:
-        print("Error: %s - %s." % (e.filename, e.strerror))
 
 # Process ref data
 # For each .shp file in our unzipped ref directory
@@ -630,28 +344,6 @@ lmi_out_filep = join(VULN_DIR_I, 'social', FIPS, 'lmi.gpkg')
 lmi_f.to_file(lmi_out_filep, driver='GPKG')
 
 # Link attributes to nsi
-# Project nsi to flood zone crs
-nsi_fz = nsi_clip_out.to_crs(nfhl_clip_out.crs)
-
-# Spatial join, retaining flood zone cols
-# Only need the id and geom from nsi for this
-fz_m = gpd.sjoin(nsi_fz[['fd_id', 'geometry']],
-                 nfhl_clip_out,
-                 predicate='within')
-
-# I checked for issues like overlapping flood zones
-# resulting in NSI structures in multiple polygons
-# and did not find any. That's good, but chances
-# are there will be counties where this happens
-# and we will need code to handle these consistently
-
-# Write out fd_id/fld_ar_id/fld_zone/static_bfe
-keep_cols = ['fd_id', 'fld_zone', 'fld_ar_id', 'static_bfe']
-fz_m_out = fz_m[keep_cols]
-
-nsi_fz_filep = join(EXP_DIR_I, FIPS, 'nsi_fz.pqt')
-prepare_saving(nsi_fz_filep)
-fz_m_out.to_parquet(nsi_fz_filep)
 
 # For zcta, tract, bg, and block
 # we want to do spatial joins to link
