@@ -31,7 +31,6 @@ NATION = 'US'
 nsi_struct = gpd.read_file(join(EXP_DIR_I, FIPS, 'nsi_sf.gpkg'))
 nsi_ref = pd.read_parquet(join(EXP_DIR_I, FIPS, 'nsi_ref.pqt'))
 nsi_depths = pd.read_parquet(join(EXP_DIR_I, FIPS, 'nsi_depths.pqt'))
-nsi_fz = pd.read_parquet(join(EXP_DIR_I, FIPS, 'nsi_fz.pqt'))
 
 # Filter to properties with > 0 
 nsi_depths = nsi_depths[nsi_depths.iloc[:,1:].sum(axis=1) > 0]
@@ -74,37 +73,16 @@ nsi_res = nsi_struct[keep_cols]
 # Let's merge in refs into nsi_res
 nsi_res = nsi_res.merge(nsi_ref, on='fd_id')
 
-# We're also going to merge in fzs
-nsi_res = nsi_res.merge(nsi_fz[['fd_id', 'fld_zone']], on='fd_id')
-
 # Retain only the rows that correspond to structures
 # that are exposed to flood depths
 ## For this case study, we don't need to merge depths in
 # at this stage
 full_df = nsi_res[nsi_res['fd_id'].isin(nsi_depths['fd_id'])]
 
-# Let's get the fld_zone column processed for the way it needs
-# to be done for using hazus ddfs
-# Get the first character of the flood zone and only retain it
-# if it's a V zone. We are going to use A zone for A and outside
-# (if any) flood zone depth exposures
-ve_zone = np.where(full_df['fld_zone'].str[0] == 'V',
-                   'V',
-                   'A')
-full_df = full_df.assign(fz_ddf = ve_zone)
-
 # Load DDFs
 naccs_ddfs = pd.read_parquet(join(VULN_DIR_I, 'physical', 'naccs_ddfs.pqt'))
-hazus_ddfs = pd.read_parquet(join(VULN_DIR_I, 'physical', 'hazus_ddfs.pqt'))
-hazus_nounc = pd.read_parquet(join(VULN_DIR_I, 'physical', 'hazus_ddfs_nounc.pqt'))
 
 # Load helper dictionaries
-with open(join(VULN_DIR_I, 'physical', 'hazus.json'), 'r') as fp:
-    HAZUS_MAX_DICT = json.load(fp)
-
-with open(join(VULN_DIR_I, 'physical', 'hazus_nounc.json'), 'r') as fp:
-    HAZUS_MAX_NOUNC_DICT = json.load(fp)
-
 with open(join(VULN_DIR_I, 'physical', 'naccs.json'), 'r') as fp:
     NACCS_MAX_DICT = json.load(fp)
 
@@ -120,7 +98,7 @@ rng = np.random.default_rng()
 # form by passing array_like data of size N*len(df)
 # to different rng() calls to get all the draws from
 # distributions that we need
-drop_cols = ['block_id', 'fld_zone']
+drop_cols = ['block_id']
 ens_df = full_df.drop(columns=drop_cols)
 ens_df = ens_df.loc[np.repeat(ens_df.index, N_SOW)].reset_index(drop=True)
 print('Created Index for Ensemble')
@@ -131,25 +109,11 @@ print('Created Index for Ensemble')
 # I also want to treat this as truncated
 # on the lower end since there is a risk of drawing impossibly
 # low numbers (like negative) with this approach
-# https://github.com/kieranrcampbell/blog-notebooks/blob/master/
-# Fast%20vectorized%20sampling%20from%20truncated%
-# 20normal%20distributions%20in%20python.ipynb
-# outlines an approach to use numpy to do a truncated sample
-# TODO move this to a util file
-def truncnorm_rvs_recursive(x, sigma, lower_clip):
-    rng = np.random.default_rng()
-    q = rng.normal(x, sigma)
-    if np.any(q < lower_clip):
-        # Adjustment to the code provided to index the sigma vector
-        q[q < lower_clip] = truncnorm_rvs_recursive(x[q < lower_clip],
-                                                    sigma[q < lower_clip],
-                                                    lower_clip)
-
-    return q
-# Using 20000 as an artificial, arbitrary lower bound on value
-ens_df['val_s'] = truncnorm_rvs_recursive(ens_df['val_struct'],
-                                          ens_df['val_struct']*COEF_VARIATION,
-                                          20000)
+# Using 1 for lower bound on value (very low probability of occurring)
+vals = rng.normal(ens_df['val_struct'],
+                  ens_df['val_struct']*COEF_VARIATION)
+vals[vals < 1] = 1
+ens_df['val_s'] = vals
 
 print('Draw values')
 
@@ -161,13 +125,6 @@ ens_df['bld_types'] = ens_df['occtype'].str.split('-').str[1]
 # In theory, bld_type is naccs_ddf_type. No need to 
 # take this storage up in practice... just refer to bld_type
 # when needed
-# For WB homes, hazus_ddf_type is bld_types + '_' + ens_df['fz_ddf']
-# For NB homes, it's bld_types
-# It makes practical sense to create a new series for this
-ens_df['hazus_types'] = np.where(ens_df['bld_types'].str[-2:] == 'WB',
-                                 ens_df['bld_types'] + '_' + ens_df['fz_ddf'],
-                                 ens_df['bld_types'])
-
 
 # We are going to use the fnd_type to draw from the
 # FFE distribution
@@ -186,17 +143,12 @@ ens_df['ffe'] = ffes
 
 print('Generated Structure Characteristics')
 
-## For this case study, we're using depths as scenarios
-# Loop through each of Lower, Mid, Upper in the depths_df
-# and merge this depth_df into ens_df
-# This is hard coded (i.e. Lower/Mid) and (500) which isn't ideal
-# and I should replace these with values in the config file
-# Store this in a dictionary - it's a little easier
+# Getting losses
 ens_dfs = {}
 # Also helps to have a dictionary for the depths adjusted
 # by first floor elevation
 depth_ffes = {}
-for scen in ['Lower', 'Mid', 'Upper']:
+for scen in ['Mid']:
     print('Scenario: ' + scen)
     # We subset to the scenario
     depth_df = depths_df[depths_df['scen'] == scen].drop(columns=['scen'])
@@ -216,9 +168,7 @@ for scen in ['Lower', 'Mid', 'Upper']:
     print('Adjuted depths by FFE\n')
 
 # Now, we are going to loop through each return period
-# and estimate losses for NACCS and HAZUS using our helper
-# functions for each of these
-
+# and estimate losses for NACCS 
 # We do this for each of the ens_df in ens_dfs
 for scen, ens_df in ens_dfs.items():
     print('Scenario: ' + scen)
@@ -234,23 +184,14 @@ for scen, ens_df in ens_dfs.items():
                                         depth_ffe_df[rp],
                                         naccs_ddfs,
                                         NACCS_MAX_DICT)
-        hazus_loss[rp] = est_hazus_loss(ens_df['hazus_types'],
-                                        depth_ffe_df[rp],
-                                        hazus_ddfs,
-                                        HAZUS_MAX_DICT)
     
-        print('Estimate Losses for NACCS & Hazus, RP: ' + rp)
+        print('Estimate Losses for NACCS, RP: ' + rp)
     
-    # Then, we convert these to dataframes
-    hazus_df = pd.DataFrame.from_dict(hazus_loss)
-    naccs_df = pd.DataFrame.from_dict(naccs_loss)
+    # Then, we convert this to a dataframe
+    losses_df = pd.DataFrame.from_dict(naccs_loss)
 
-    # We define the losses_df by concatenating the hazus & naccs
-    # data frames along their columns, after fixing their column
-    # names
-    hazus_df.columns = ['haz_rel_dam_' + x for x in hazus_df.columns]
-    naccs_df.columns = ['naccs_rel_dam_' + x for x in naccs_df.columns]
-    losses_df = pd.concat([hazus_df, naccs_df], axis=1)
+    # Update column names
+    losses_df.columns = ['naccs_rel_dam_' + x for x in losses_df.columns]
 
     # Now we concat these with ens_df, stories, fnd_type,
     # ffe, structure value, and depth_ffe_df
@@ -284,35 +225,27 @@ for scen, ens_df in ens_dfs.items():
     
     # We make a list of our loss columns
     # This is easier to do splitting by prefix
-    hazus_loss_list = ['hazus_loss_' + x for x in RET_PERS]
     naccs_loss_list = ['naccs_loss_' + x for x in RET_PERS]
     # As well as the corresponding probabilities
     p_rp_list = [round(1/int(x), 4) for x in RET_PERS]
     
     # Then we create an empty series
     # Two, for hazus & naccs loss estimates
-    eal_hazus = pd.Series(index=ens_df.index).fillna(0)
     eal_naccs = pd.Series(index=ens_df.index).fillna(0)
     
     # We loop through our loss list and apply the 
     # trapezoidal approximation
-    for i in range(len(hazus_loss_list) - 1):
-        loss1_hazus = ens_df[hazus_loss_list[i]]
-        loss2_hazus = ens_df[hazus_loss_list[i+1]]
+    for i in range(len(naccs_loss_list) - 1):
         loss1_naccs = ens_df[naccs_loss_list[i]]
         loss2_naccs = ens_df[naccs_loss_list[i+1]]
         rp1 = p_rp_list[i]
         rp2 = p_rp_list[i+1]
         # We add each approximation
-        eal_hazus += (loss1_hazus + loss2_hazus)*(rp1-rp2)/2
         eal_naccs += (loss1_naccs + loss2_naccs)*(rp1-rp2)/2
     # This is the final trapezoid to add in
-    final_eal_hazus = eal_hazus + ens_df[hazus_loss_list[-1]]*p_rp_list[-1]
     final_eal_naccs = eal_naccs + ens_df[naccs_loss_list[-1]]*p_rp_list[-1]
     print('Calculated EAL')
     # Add eal columns to our dataframe
-    ens_df = pd.concat([ens_df, pd.Series(final_eal_hazus, name='hazus_eal')],
-                       axis=1)
     ens_df = pd.concat([ens_df, pd.Series(final_eal_naccs, name='naccs_eal')],
                        axis=1)
     
@@ -324,9 +257,7 @@ for scen, ens_df in ens_dfs.items():
     ens_dfs[scen] = ens_df
     print('Stored in dictionary\n')
 
-# Write out our ensemble dfs
+# Write out our ensemble df
 ens_out_filep = join(FO, 'ensemble.pqt')
 prepare_saving(ens_out_filep)
-ens_dfs['Lower'].to_parquet(join(FO, 'ensemble_Lower.pqt'))
-ens_dfs['Mid'].to_parquet(join(FO, 'ensemble_Mid.pqt'))
-ens_dfs['Upper'].to_parquet(join(FO, 'ensemble_Upper.pqt'))
+ens_dfs['Mid'].to_parquet(join(FO, 'ensemble.pqt'))
