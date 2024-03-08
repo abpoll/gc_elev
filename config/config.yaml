@@ -160,21 +160,23 @@ ref_id_names:
 # If we use guidance from the Krause et al. paper linked
 # above, we can define a normal distribution that is centered
 # at the predicted value and has a standard deviation
-# equal to predicted value * .3. If you 
-# look at the probability of getting a value > 
-# the predicted value + predicted value *.3, it's
-# around .158, and same for the other side. So
-# we can push our scaling factor down a bit
-# to try and get the probability 
-# of being above or under 
-# predicted value + predicted value *.3
-# to around .1 on either side. That would be
-# consistent with the finding in Krause
-# This leads to a scaling factor of about .25
-# Another interpretation for this scaling factor
-# is the coefficient of variation around
-# the mean
-coef_var: .25
+# equal to predicted value * .2. At the min structure value
+# in our case study, $50K, if you 
+# look at the probability of getting a value within 
+# the predicted value +/- predicted value *.3, it's
+# around .87. So that's a bit better than
+# what Krause gets but it's pretty close. 
+# For pv +/- pv*.1 it's .38. So, that's a little
+# worse than Krause but pretty close. 
+# If we make the scaling factor smaller, 
+# like .15, the latter estimate goes to .495
+# which is over-optimistic. For pv*.3 it's
+# .95 which is way too over-optimistic. 
+# .2 seems ok. What about at the max
+# value? Roughly 440k. For *.1 you get
+# .38 which is pretty good. and for *.3
+# you get .86. So, .2 seems like a good call. 
+coef_var: .2
 
 # Dictionary of foundation types 
 # Triangular distributions for first-floor elevation conditioned
