@@ -19,12 +19,13 @@ NATION = 'US'
 print('Starting')
 
 # I think it also could make sense to pass in scenario and
-# ddf type as arguments. For main results
-# we're using 'mid' and 'naccs' but for generating
-# our sensitivity analysis results we will need to pass
-# in the other scenarios and 'hazus'
-scenarios = ['Lower', 'Mid', 'Upper']
-ddf_types = ['naccs', 'hazus']
+# ddf type as arguments. For this study
+# we're using 'mid' and 'naccs' but in future papers
+# we want to think about deep uncertainty, so
+# trying to code this up in a way that accommodates 
+# that type of future inquiry
+scenarios = ['Mid']
+ddf_types = ['naccs']
 
 # Everything that we do here is based on the ensemble values
 # That means we take the ffe variable in our ensemble df
@@ -41,8 +42,8 @@ ddf_types = ['naccs', 'hazus']
 # elevation cost estimation
 # We need bldgtype for elevation cost estimation, too
 sub_cols = ['fd_id', 'found_type', 'sqft', 'bldgtype',
-            'bld_types', 'hazus_types', 'naccs_eal',
-            'hazus_eal', 'val_s', 'sow_ind']
+            'bld_types', 'naccs_eal',
+            'val_s', 'sow_ind']
 # We need to add depth_ffe_* columns 
 depth_ffe_cols = ['depth_ffe_' + x for x in RET_PERS]
 sub_cols = sub_cols + depth_ffe_cols
@@ -60,12 +61,8 @@ for scen in scenarios:
 # We'll need DDFs for estimating benefits
 # Load DDFs
 naccs_ddfs = pd.read_parquet(join(VULN_DIR_I, 'physical', 'naccs_ddfs.pqt'))
-hazus_ddfs = pd.read_parquet(join(VULN_DIR_I, 'physical', 'hazus_ddfs.pqt'))
 
 # Load helper dictionaries
-with open(join(VULN_DIR_I, 'physical', 'hazus.json'), 'r') as fp:
-    HAZUS_MAX_DICT = json.load(fp)
-
 with open(join(VULN_DIR_I, 'physical', 'naccs.json'), 'r') as fp:
     NACCS_MAX_DICT = json.load(fp)
 
@@ -104,26 +101,6 @@ dr_factors = np.exp(-(dr_chains/100).cumsum())
 # In numpy, you generate draws from a 1 parameter Weibull
 # using the shape parameter, and multiply these draws from
 # the scale parameter
-# It's likely that house lifetime distributions are different for
-# elevated and non-elevated properties exposed to flooding, but
-# we don't have this information. While the method can be improved,
-# Maggie's paper demonstrates the importance of accounting for
-# house lifetime uncertainty in estimating project benefits. In
-# particular, when discount rates in the future are low and project
-# lifetimes are long, the net benefits will be higher than
-# under the standard procedure (moderate discount rate and
-# 30 year lifetime). The standard procedure -- which also requires
-# that the project BCR > 1 -- will tend to under-prefer
-# investment in lower valued structures which need a longer time
-# to exceed the BCR > 1 threshold. So again, while future work
-# should improve on this, accounting for house lifetime uncertainty
-# matters when you're dealing with a BCR > 1 rule, as we are. 
-# Since this is about the interaction with the discount rate, and
-# we don't have the ability to associate the parameters with
-# housing characteristics, I will use the same draws for each house
-# and interpret this as uncertainty in the house lifetime parameter
-# whose benchmark value is 30. 
-
 rng = np.random.default_rng()
 lifetime = rng.weibull(W_SHAPE, N_SOW)*W_SCALE
 
@@ -340,10 +317,8 @@ for scen, ens_df in ens_dfs.items():
                                                      naccs_ddfs,
                                                      NACCS_MAX_DICT)
                 else:
-                    elev_losses[rp] = est_hazus_loss(ens_df['hazus_types'],
-                                                     depth_ffe_df[rp],
-                                                     hazus_ddfs,
-                                                     HAZUS_MAX_DICT)
+                    # Placeholder for now
+                    print('Placeholder for other DDFs')
             
                 print('Estimate Losses for Elevated Home, RP: ' + rp)
             

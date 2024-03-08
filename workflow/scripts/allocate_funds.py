@@ -16,12 +16,13 @@ STATEABBR = 'NJ'
 NATION = 'US'
 
 # I think it also could make sense to pass in scenario and
-# ddf type as arguments. For main results
-# we're using 'mid' and 'naccs' but for generating
-# our sensitivity analysis results we will need to pass
-# in the other scenarios and 'hazus'
-scenarios = ['Lower', 'Mid', 'Upper']
-ddf_types = ['naccs', 'hazus']
+# ddf type as arguments. For this study
+# we're using 'mid' and 'naccs' but in future papers
+# we want to think about deep uncertainty, so
+# trying to code this up in a way that accommodates 
+# that type of future inquiry
+scenarios = ['Mid']
+ddf_types = ['naccs']
 
 # Load the ensemble data, along with the optimal
 # elevation results
@@ -85,22 +86,6 @@ budgets_typ = np.arange(1e6, 6.1e6, 5e5)
 budgets_high = np.arange(7e6, 15.1e6, 1e6)
 budgets = np.append(budgets_typ, budgets_high)
 
-# To calculate objectives
-# We need to evaluate the objective in each SOW
-# and then get our across SOW value
-# For mean(npv), we take the sum of npv_opt (from elevated homes) 
-# in each SOW and then take the mean of that
-# For mean(up_cost), we take the sum of elev_invst(from elevated homes)
-# in each SOW and then take the mean of that
-# For mean(pv_resid), we take the sum of pv_resid (for elevated)
-# and pv_base (for not elevated) in each SOW and then take the mean
-# For mean(resid_rel_eal), we take the mean of resid_rel_eal
-# (for elevated) and rel_eal (for not elevated) in each SOW and
-# then take the mean
-# For mean(slope_resid_rel_eal), we find the slope of the 
-# resid_rel_eal & rel_eal (based on elevated homes) in each SOW
-# and then take the mean
-
 # Sorting
 
 # We also want to write out the ordering and
@@ -145,18 +130,6 @@ for scen, sort_df in sort_dfs.items():
     # Loop through ascending columns and sort, store in dict
     # We add in the remaining observations in case we have
     # budget left over
-    # TODO if the sort_col is in c_sort_cols,
-    # we need to add a step where we ensure
-    # the majority of benefits come from
-    # the sort_pri. We will need to loop separately
-    # from the remainder of the sort_dict.items() (or put
-    # a switch on the loop) to do the processing separately
-    # and then calculate objectives all the same
-    # The thing that changes is subsetting df based on budget. 
-    # We need to add an if/else where if sort_col is in c_sort_cols
-    # there is some cross checking. It will help to have
-    # a separate dict that stores the ids of sort_pri and sort_slack
-    # for each of the columns in c_sort_cols. 
     for col in c_sort_cols:
         sort_temp = sort_c_df[sort_c_df[col] == False]
         sort_slack = sort_temp.sort_values(['npv_opt', 'val_s'],

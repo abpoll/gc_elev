@@ -260,4 +260,4 @@ for scen, ens_df in ens_dfs.items():
 # Write out our ensemble df
 ens_out_filep = join(FO, 'ensemble.pqt')
 prepare_saving(ens_out_filep)
-ens_dfs['Mid'].to_parquet(join(FO, 'ensemble.pqt'))
+ens_dfs['Mid'].to_parquet(join(FO, 'ensemble_Mid.pqt'))

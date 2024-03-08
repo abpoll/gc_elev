@@ -241,6 +241,7 @@ def plot_alloc(ens_plot, elev_ids,
     
 def plot_objcst(obj_plot, obj_cols, obj_names,
                 scen, color_dict, min_obj_cols,
+                avoid_eq_col,
                 save_filename):
     """
     Take a dataframe that contains
@@ -257,6 +258,8 @@ def plot_objcst(obj_plot, obj_cols, obj_names,
     scen: str, the modeling scenario
     color_dict: dict, for funding rule hues
     min_obj_cols: list of axes to reverse
+    avoid_eq_col: str, name of how inequity in
+    investment objective is calculated
     save_filename: str, filepath for saving
     """
     
@@ -279,7 +282,7 @@ def plot_objcst(obj_plot, obj_cols, obj_names,
     # the highest npv. This corresponds to
     # the lowest upfront cost. 
     j40_plot = j40.loc[j40['npv'].idxmax()]
-    j40_avoid_eq = j40_plot['avoid_eq']
+    j40_avoid_eq = j40_plot[avoid_eq_col]
     j40_resid = j40_plot['pv_resid_plot']
     j40_npv = j40_plot['npv_plot']
     j40_resid_eq = j40_plot['resid_eq']
@@ -319,6 +322,8 @@ def plot_objcst(obj_plot, obj_cols, obj_names,
     # Plot the kde 
     # Solid lines community, dashed for household
     # Unique colors
+    lw=2
+
     for i, obj in enumerate(obj_cols):
         row = i // 2
         col = i % 2
@@ -329,12 +334,14 @@ def plot_objcst(obj_plot, obj_cols, obj_names,
                     data=objs[objs['res'] == 'household'],
                     hue='sort',
                     palette=color_dict,
+                    lw=lw,
                     legend=False,
                     ax=ax[row, col])
         sns.lineplot(data=objs[objs['res'] == 'community'],
                     x='cost_plot',
                     y=obj,
                     hue='sort',
+                    lw=lw,
                     ls='dashed',
                     palette=color_dict,
                     legend=False,
@@ -380,18 +387,18 @@ def plot_objcst(obj_plot, obj_cols, obj_names,
     # Add legend below
     legend_elements = [Line2D([0], [0], color='black', ls='none',
                             label='Household Criteria'),
-                    Line2D([0], [0], color=color_dict['npv_opt'], lw=1,
-                            label='Net Present Value'),
-                    Line2D([0], [0], color=color_dict['avoid_rel_eal'], lw=1,
+                    Line2D([0], [0], color=color_dict['npv_opt'], lw=lw,
+                            label='Net Benefit'),
+                    Line2D([0], [0], color=color_dict['avoid_rel_eal'], lw=lw,
                             label='Risk Burden Reduction'),
-                    Line2D([0], [0], color=color_dict['rel_eal'], lw=1,
+                    Line2D([0], [0], color=color_dict['rel_eal'], lw=lw,
                             label='Initial Risk Burden'),
                     Line2D([0], [0], color='black', ls='none',
                             label='Community Criteria'),
-                    Line2D([0], [0], color=color_dict['lmi'], lw=1,
+                    Line2D([0], [0], color=color_dict['lmi'], lw=lw,
                             ls='dashed',
                             label='Low-Mod Income'),
-                    Line2D([0], [0], color=color_dict['ovb'], lw=1,
+                    Line2D([0], [0], color=color_dict['ovb'], lw=lw,
                             ls='dashed',
                             label='NJ Overburdened'),
                     Line2D([0], [0], color=color_dict['cejst'],
