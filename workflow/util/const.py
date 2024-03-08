@@ -35,10 +35,8 @@ API_EXT = CONFIG['api_ext']
 # %iles of the waterlevel/precip distributions
 # for each RP
 HAZ_DIR_MID = CONFIG['haz_dir_mid']
-HAZ_DIR_LOW = CONFIG['haz_dir_low']
-HAZ_DIR_HIGH = CONFIG['haz_dir_high']
 HAZ_DIR_SUB = CONFIG['haz_dir_sub']
-HAZ_DIRS = [HAZ_DIR_LOW, HAZ_DIR_MID, HAZ_DIR_HIGH]
+HAZ_DIRS = [HAZ_DIR_MID]
 
 # Get the CRS constants
 NSI_CRS = CONFIG['nsi_crs']
