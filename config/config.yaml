@@ -100,8 +100,6 @@ url_wildcards: ["{FIPS}", "{STATEABBR}", "{STATEFIPS}", "{NATION}"]
 
 # We need to keep track of the hazard directory name
 haz_dir_mid: "Combination_Rain_WL_Mid"
-haz_dir_low: "Combination_Rain_WL_Lower"
-haz_dir_high: "Combination_Rain_WL_Upper"
 haz_dir_sub: "Combination_Rain_WL"
 
 # Keep track of NSI CRS
