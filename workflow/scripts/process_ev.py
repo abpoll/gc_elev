@@ -90,7 +90,7 @@ nsi_gdf.columns = col_updates
 # RES 3 - multifamily (but could fit into a depth-damage function
 # archetype depending on # stories)
 # We are going to use RES1 for this case-study
-# It is the only occtype with hazus and naccs
+# It is the only occtype with naccs
 # DDFs and has less ambiguous classification
 
 # occtype category for easier use in loss estimation steps
