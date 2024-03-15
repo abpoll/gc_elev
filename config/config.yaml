@@ -51,23 +51,11 @@ download:
             # We use the Gloucester City, NJ municipal boundary as our clip
             # file for this case study
         clip: "https://services3.arcgis.com/JGF6qCAQFbROcocK/arcgis/rest/services/CamdenCountyMunicipalLayer/FeatureServer/0/query?f=geojson&where=(NAMELSAD%20IN%20(%27Gloucester%20City%20city%27))&outFields=*"
-    url:
-        # We use the national flood hazard layer for flood zones
-        # These URLs currently are not in a structured format, as far as I know
-        # and to generalize this may be better suited to a more dynamic
-        # speficiation (i.e. maybe with url prefix and then the {fname}.zip specified
-        # more dynamically)
-        pol:
-          nfhl: "https://hazards.fema.gov/nfhlv2/output/County/34007C_20160816.zip"
   STATEABBR:
     url:
       vuln:
         social:
-          # replace STATE_ABBR with state abbreviation in the download rule
-          # We have a helper function in a util/ directory that replaces
-          # STATE with the STATE key at the top of this config.yml file
-          # This is the NOAA SOVI data
-          noaa: "https://coast.noaa.gov/htdata/SocioEconomic/SoVI2010/SoVI_2010_{STATEABBR}.zip"
+          ovb: "https://www.nj.gov/dep/gis/digidownload/zips/OpenData/Govt_census_group_2022_EJ.zip"
       ref:
         # replace STATE_FIPS with st_fips in the download rule
         # We have a helper function in a util/ directory that replaces
@@ -84,6 +72,7 @@ download:
           # so just downloaded that separately from
           # https://www.hudexchange.info/sites/onecpd/assets/File/ACS_2015_lowmod_blockgroup_all.xlsx
           # and uploaded it the raw/ directory
+          svi: "https://svi.cdc.gov/Documents/Data/2020/csv/states/SVI_2020_US.csv"
           cejst: "https://static-data-screeningtool.geoplatform.gov/data-versions/1.0/data/score/downloadable/1.0-communities.csv"
       ref:
         # County and zip code tabulation area spatial data available for the whole country
@@ -118,11 +107,6 @@ clip_crs: "EPSG:4326"
 RPs: ["001", "002", "005", "010", "015", "020", "025", "050", "075", "100", "200", "500"]
 haz_filename: "Max_WD_Comb_{RP}.asc"
 haz_crs: "EPSG:26918"
-
-# Some configurations for deleting zipped
-# directories that were downloaded after
-# they have been processed
-rm_nfhl: False
 
 # Dictionary of reference filenames to 
 # what we want them to say

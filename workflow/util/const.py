@@ -48,11 +48,6 @@ RET_PERS = CONFIG['RPs']
 HAZ_FILEP = CONFIG['haz_filename']
 HAZ_CRS = CONFIG['haz_crs']
 
-# Toggles for deleting zip directories
-# that were downloaded after they
-# have been processed
-RM_NFHL = CONFIG['rm_nfhl']
-
 # Dictionary of ref_names
 REF_NAMES_DICT = CONFIG['ref_names']
 

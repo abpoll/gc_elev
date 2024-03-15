@@ -282,12 +282,9 @@ cejst_f.to_file(cejst_out_filep, driver='GPKG')
 # NJ overburdened data
 
 # Read data
-ovb_filep = join(VULN_DIR_R, 'social', STATEABBR, 'overburdened.gpkg')
+ovb_filep = join(VULN_DIR_UZ, 'social', STATEABBR,
+                 'Govt_census_group_2022_EJ.gdb')
 ovb = gpd.read_file(ovb_filep)
-
-# Remove "properties" from columns
-col_updates = [x.replace("properties.", "") for x in ovb.columns]
-ovb.columns = col_updates
 
 # Rename some columns
 ovb = ovb.rename(columns={'OVERBURDENED_COMMUNITY_CRITERI': 'ovb_crit'})
@@ -297,33 +294,41 @@ ovb_f = ovb[['GEOID', 'ovb_crit', 'geometry']]
 
 # The data already is limited to overburdened categories
 
+# Subset to our study area
+ovb_reproj = ovb_f.to_crs(clip_gdf.crs)
+ovb_clipped = gpd.clip(ovb_reproj, clip_gdf)
+
 # Write file
 ovb_out_filep = join(VULN_DIR_I, 'social', FIPS, 'ovb.gpkg')
-ovb_f.to_file(ovb_out_filep, driver='GPKG')
+ovb_clipped.to_file(ovb_out_filep, driver='GPKG')
 
-# NOAA SOVI data
-sovi_suffix = 'SoVI2010_' + STATEABBR
-sovi_filename = 'SoVI0610_' + STATEABBR + '.shp'
-sovi_filep = join(VULN_DIR_UZ, 'social', STATEABBR,
-                  sovi_suffix, sovi_filename)
-sovi = gpd.read_file(sovi_filep)
+# CDC SVI data
+svi_filename = 'svi.csv'
+svi_filep = join(VULN_DIR_R, 'social', NATION, svi_filename)
+svi = pd.read_csv(svi_filep)
 
 # Subset columns
-keep_cols = ['GEOID10', 'SOVI0610_1', 'SOVI0610_2',
-             'SOVI0610' + STATEABBR]
-sovi_high = sovi[keep_cols]
+# The overall summary ranking variable is RPL_THEMES
+# From https://www.atsdr.cdc.gov/placeandhealth/svi/
+# documentation/SVI_documentation_2020.html
+keep_cols = ['FIPS', 'RPL_THEMES']
+svi_high = svi[keep_cols]
 
-# Rename GEOID10 to GEOID
-sovi_high = sovi_high.rename(columns={'GEOID10': 'GEOID'})
+# Rename FIPS to GEOID
+# Rename RPL_THEMES to sovi
+# GEOID needs to be a str, 11 characters long
+svi_high = svi_high.rename(columns={'FIPS': 'GEOID',
+                                    'RPL_THEMES': 'sovi'})
+svi_high['GEOID'] = svi_high['GEOID'].astype(str).str.zfill(11)
 
 # Subset to tracts in our study area (using the tract_geo geometries)
-sovi_f = tract_geo[['GEOID', 'geometry']].merge(sovi_high,
-                                                on='GEOID',
-                                                how='inner')
+svi_f = tract_geo[['GEOID', 'geometry']].merge(svi_high,
+                                               on='GEOID',
+                                               how='inner')
 
 # Write out file
 sovi_out_filep = join(VULN_DIR_I, 'social', FIPS, 'sovi.gpkg')
-sovi_f.to_file(sovi_out_filep, driver='GPKG')
+svi_f.to_file(sovi_out_filep, driver='GPKG')
 
 # LMI data
 # Read data
@@ -414,8 +419,8 @@ for fn in filenames:
         # The statutory hreshold is 50%, so retain those
         sovi_sub = sovi_geo[sovi_geo['Lowmod_pct'] > .5]
     elif fn == 'sovi':
-        # Subset to threshhold for FMA (from 2022 NOFO)
-        sovi_sub = sovi_geo[sovi_geo['SOVI0610' + STATEABBR] > .75]
+        # Subset to threshhold for FMA/BRIC (from 2022 NOFO)
+        sovi_sub = sovi_geo[sovi_geo['sovi'] > .6]
     else:
         sovi_sub = sovi_geo
 
